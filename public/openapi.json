@@ -1,0 +1,255 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Abrangência LRS Correios",
+    "version": "1.0.0",
+    "description": "Consulta se um CEP é atendido pela Logística Reversa dos Correios em cada modalidade (SEDEX Reverso, PAC Reverso e Disque Coleta).\n\nOs dados vêm da [planilha pública de abrangência](https://www2.correios.com.br/encomendas/servicosOnline/logisticaReversa/abrangencia/dsp/listaAreaAbrangenciaExcel.cfm), sincronizada uma vez por dia. As respostas ficam até 24 h em cache na CDN. A data do snapshot em uso aparece em `dados.atualizadoEm` e em `/api/v1/meta`.\n\nA API valida o formato do CEP e se ele está dentro das faixas da planilha. Ela **não** confirma que o CEP existe."
+  },
+  "servers": [{ "url": "/", "description": "Este servidor" }],
+  "tags": [
+    { "name": "Abrangência", "description": "Consulta de atendimento por CEP" },
+    { "name": "Metadados", "description": "Informações sobre o snapshot de dados" }
+  ],
+  "paths": {
+    "/api/v1/abrangencia/coleta/{cep}": {
+      "get": {
+        "tags": ["Abrangência"],
+        "operationId": "consultarColeta",
+        "summary": "Abrangência de coleta por CEP",
+        "description": "Retorna, para cada modalidade, se o CEP é aceito e quais unidades de coleta o atendem. Uma mesma modalidade pode ter mais de uma unidade, porque a planilha tem faixas sobrepostas.\n\nUm CEP fora de todas as faixas **não** é erro: a resposta é `200` com `atendido: false`.",
+        "parameters": [
+          {
+            "name": "cep",
+            "in": "path",
+            "required": true,
+            "description": "CEP com 8 dígitos. Hífen e ponto são opcionais.",
+            "schema": { "type": "string", "pattern": "^\\d{2}\\.?\\d{3}-?\\d{3}$" },
+            "examples": {
+              "comHifen": { "summary": "Com hífen", "value": "01310-100" },
+              "semHifen": { "summary": "Só dígitos", "value": "01310100" },
+              "parcial": { "summary": "Sem Disque Coleta", "value": "12200-000" },
+              "naoAtendido": { "summary": "Não atendido", "value": "70000-000" }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Consulta realizada.",
+            "headers": { "Cache-Control": { "$ref": "#/components/headers/CacheControl" } },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ResultadoColeta" },
+                "examples": {
+                  "atendido": {
+                    "summary": "Atendido em todas as modalidades",
+                    "value": {
+                      "cep": "01310100",
+                      "cepFormatado": "01310-100",
+                      "atendido": true,
+                      "modalidades": {
+                        "sedexReverso": {
+                          "servico": "SEDEX Reverso",
+                          "aceito": true,
+                          "unidades": [
+                            { "unidade": "CDD ESTADIO", "dr": "SE/SPM", "prazo": "D + 1", "prazoDias": 1, "cepInicial": "01310-000", "cepFinal": "01311-999" }
+                          ]
+                        },
+                        "pacReverso": {
+                          "servico": "PAC Reverso",
+                          "aceito": true,
+                          "unidades": [
+                            { "unidade": "CDD ESTADIO", "dr": "SE/SPM", "prazo": "D + 1", "prazoDias": 1, "cepInicial": "01310-000", "cepFinal": "01311-999" }
+                          ]
+                        },
+                        "disqueColeta": {
+                          "servico": "Disque Coleta",
+                          "aceito": true,
+                          "unidades": [
+                            { "unidade": "CDD ESTADIO", "dr": "SE/SPM", "prazo": "D + 1", "prazoDias": 1, "cepInicial": "01310-000", "cepFinal": "01311-999" }
+                          ]
+                        }
+                      },
+                      "dados": {
+                        "atualizadoEm": "2026-10-19T14:54:56.105Z",
+                        "fonte": "https://www2.correios.com.br/encomendas/servicosOnline/logisticaReversa/abrangencia/dsp/listaAreaAbrangenciaExcel.cfm"
+                      }
+                    }
+                  },
+                  "naoAtendido": {
+                    "summary": "Fora de todas as faixas",
+                    "value": {
+                      "cep": "70000000",
+                      "cepFormatado": "70000-000",
+                      "atendido": false,
+                      "modalidades": {
+                        "sedexReverso": { "servico": "SEDEX Reverso", "aceito": false, "unidades": [] },
+                        "pacReverso": { "servico": "PAC Reverso", "aceito": false, "unidades": [] },
+                        "disqueColeta": { "servico": "Disque Coleta", "aceito": false, "unidades": [] }
+                      },
+                      "dados": {
+                        "atualizadoEm": "2026-10-19T14:54:56.105Z",
+                        "fonte": "https://www2.correios.com.br/encomendas/servicosOnline/logisticaReversa/abrangencia/dsp/listaAreaAbrangenciaExcel.cfm"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "CEP em formato inválido.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Erro" },
+                "example": {
+                  "erro": { "codigo": "CEP_INVALIDO", "mensagem": "Informe um CEP com 8 dígitos, com ou sem hífen. Ex.: 01310-100" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/meta": {
+      "get": {
+        "tags": ["Metadados"],
+        "operationId": "obterMeta",
+        "summary": "Metadados do snapshot",
+        "description": "Data da última mudança nos dados, hash do conteúdo, totais por modalidade e faixas descartadas por inconsistência na planilha de origem.",
+        "responses": {
+          "200": {
+            "description": "Metadados do snapshot em uso.",
+            "headers": { "Cache-Control": { "$ref": "#/components/headers/CacheControl" } },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Meta" },
+                "example": {
+                  "fonte": "https://www2.correios.com.br/encomendas/servicosOnline/logisticaReversa/abrangencia/dsp/listaAreaAbrangenciaExcel.cfm",
+                  "atualizadoEm": "2026-10-19T14:54:56.105Z",
+                  "sha256": "bf51f6afa0bbafcacf483234b8ed27003f87e4814cb9e12d600259ef47c93adf",
+                  "totalLinhas": 15925,
+                  "totais": { "sedexReverso": 5307, "pacReverso": 5307, "disqueColeta": 5299 },
+                  "faixasDescartadas": [
+                    {
+                      "unidade": "CDD HELENA MARIA",
+                      "dr": "SE/SPM",
+                      "servico": "SEDEX Reverso",
+                      "cepInicial": "06246-000",
+                      "cepFinal": "06046-999",
+                      "motivo": "CEP inicial maior que o CEP final"
+                    }
+                  ],
+                  "totalUnidades": 2493
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "headers": {
+      "CacheControl": {
+        "description": "Resposta fica até 24 h em cache na CDN.",
+        "schema": { "type": "string", "example": "public, max-age=0, s-maxage=86400, stale-while-revalidate=3600" }
+      }
+    },
+    "schemas": {
+      "ResultadoColeta": {
+        "type": "object",
+        "required": ["cep", "cepFormatado", "atendido", "modalidades", "dados"],
+        "properties": {
+          "cep": { "type": "string", "pattern": "^\\d{8}$", "description": "CEP normalizado (8 dígitos)." },
+          "cepFormatado": { "type": "string", "pattern": "^\\d{5}-\\d{3}$" },
+          "atendido": { "type": "boolean", "description": "`true` se o CEP é aceito em pelo menos uma modalidade." },
+          "modalidades": {
+            "type": "object",
+            "required": ["sedexReverso", "pacReverso", "disqueColeta"],
+            "properties": {
+              "sedexReverso": { "$ref": "#/components/schemas/ResultadoModalidade" },
+              "pacReverso": { "$ref": "#/components/schemas/ResultadoModalidade" },
+              "disqueColeta": { "$ref": "#/components/schemas/ResultadoModalidade" }
+            }
+          },
+          "dados": {
+            "type": "object",
+            "required": ["atualizadoEm", "fonte"],
+            "properties": {
+              "atualizadoEm": { "type": "string", "format": "date-time", "description": "Quando o conteúdo da planilha mudou pela última vez." },
+              "fonte": { "type": "string", "format": "uri" }
+            }
+          }
+        }
+      },
+      "ResultadoModalidade": {
+        "type": "object",
+        "required": ["servico", "aceito", "unidades"],
+        "properties": {
+          "servico": { "type": "string", "enum": ["SEDEX Reverso", "PAC Reverso", "Disque Coleta"] },
+          "aceito": { "type": "boolean" },
+          "unidades": { "type": "array", "items": { "$ref": "#/components/schemas/UnidadeAtendimento" } }
+        }
+      },
+      "UnidadeAtendimento": {
+        "type": "object",
+        "required": ["unidade", "dr", "prazo", "prazoDias", "cepInicial", "cepFinal"],
+        "properties": {
+          "unidade": { "type": "string", "description": "Unidade de coleta.", "example": "CDD ESTADIO" },
+          "dr": { "type": "string", "description": "Superintendência (DR) responsável.", "example": "SE/SPM" },
+          "prazo": { "type": "string", "description": "Prazo de coleta como na planilha.", "example": "D + 1" },
+          "prazoDias": { "type": "integer", "minimum": 0, "example": 1 },
+          "cepInicial": { "type": "string", "pattern": "^\\d{5}-\\d{3}$" },
+          "cepFinal": { "type": "string", "pattern": "^\\d{5}-\\d{3}$" }
+        }
+      },
+      "Meta": {
+        "type": "object",
+        "required": ["fonte", "atualizadoEm", "sha256", "totalLinhas", "totais", "faixasDescartadas", "totalUnidades"],
+        "properties": {
+          "fonte": { "type": "string", "format": "uri" },
+          "atualizadoEm": { "type": "string", "format": "date-time" },
+          "sha256": { "type": "string", "description": "Hash do conteúdo normalizado. Só muda quando os dados mudam." },
+          "totalLinhas": { "type": "integer", "description": "Linhas lidas da planilha, incluindo as descartadas." },
+          "totais": {
+            "type": "object",
+            "description": "Faixas válidas por modalidade.",
+            "properties": {
+              "sedexReverso": { "type": "integer" },
+              "pacReverso": { "type": "integer" },
+              "disqueColeta": { "type": "integer" }
+            }
+          },
+          "faixasDescartadas": { "type": "array", "items": { "$ref": "#/components/schemas/FaixaDescartada" } },
+          "totalUnidades": { "type": "integer" }
+        }
+      },
+      "FaixaDescartada": {
+        "type": "object",
+        "required": ["unidade", "dr", "servico", "cepInicial", "cepFinal", "motivo"],
+        "properties": {
+          "unidade": { "type": "string" },
+          "dr": { "type": "string" },
+          "servico": { "type": "string" },
+          "cepInicial": { "type": "string", "description": "Valor original da planilha." },
+          "cepFinal": { "type": "string", "description": "Valor original da planilha." },
+          "motivo": { "type": "string" }
+        }
+      },
+      "Erro": {
+        "type": "object",
+        "required": ["erro"],
+        "properties": {
+          "erro": {
+            "type": "object",
+            "required": ["codigo", "mensagem"],
+            "properties": {
+              "codigo": { "type": "string", "enum": ["CEP_INVALIDO"] },
+              "mensagem": { "type": "string" }
+            }
+          }
+        }
+      }
+    }
+  }
+}

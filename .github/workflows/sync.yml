@@ -1,0 +1,45 @@
+name: Sincronizar planilha dos Correios
+
+on:
+  schedule:
+    - cron: "0 9 * * *" # todo dia às 06:00 (horário de Brasília)
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - name: Baixar planilha e gerar snapshot
+        run: npm run sync
+
+      - name: Testes
+        run: npm test
+
+      - name: Commit se houver mudança
+        run: |
+          if git diff --quiet -- data/; then
+            echo "Sem mudanças na abrangência."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/abrangencia.json
+          git commit -m "chore(data): atualiza abrangência LRS ($(date -u +%Y-%m-%d))"
+          git push
