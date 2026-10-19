@@ -1,6 +1,8 @@
-# Abrangência LRS Correios
+# Abrangência Coleta Correios API
 
 API que informa se um CEP é atendido pela **Logística Reversa dos Correios** em cada modalidade: SEDEX Reverso, PAC Reverso e Disque Coleta.
+
+### Url pública: https://coleta-correios.vercel.app/docs
 
 Os dados vêm da [planilha pública de abrangência dos Correios](https://www2.correios.com.br/encomendas/servicosOnline/logisticaReversa/abrangencia/dsp/listaAreaAbrangenciaExcel.cfm). Um GitHub Action baixa a planilha todos os dias e salva um snapshot em `data/abrangencia.json`. A API responde a partir desse snapshot, em memória, sem chamar os Correios a cada requisição.
 
@@ -8,12 +10,12 @@ Feito em Next.js para deploy na Vercel.
 
 ## Endpoints
 
-| Método | Rota | Descrição |
-|--------|------|-----------|
-| `GET` | `/api/v1/abrangencia/coleta/{cep}` | Abrangência do CEP por modalidade |
-| `GET` | `/api/v1/meta` | Data e hash do snapshot, totais e faixas descartadas |
-| `GET` | `/docs` | Swagger UI |
-| `GET` | `/openapi.json` | Especificação OpenAPI 3.1 |
+| Método | Rota                               | Descrição                                            |
+| ------ | ---------------------------------- | ---------------------------------------------------- |
+| `GET`  | `/api/v1/abrangencia/coleta/{cep}` | Abrangência do CEP por modalidade                    |
+| `GET`  | `/api/v1/meta`                     | Data e hash do snapshot, totais e faixas descartadas |
+| `GET`  | `/docs`                            | Swagger UI                                           |
+| `GET`  | `/openapi.json`                    | Especificação OpenAPI 3.1                            |
 
 ### Exemplo
 
@@ -41,8 +43,16 @@ curl https://SEU-DEPLOY.vercel.app/api/v1/abrangencia/coleta/12200-000
         }
       ]
     },
-    "pacReverso": { "servico": "PAC Reverso", "aceito": true, "unidades": [ "..." ] },
-    "disqueColeta": { "servico": "Disque Coleta", "aceito": false, "unidades": [] }
+    "pacReverso": {
+      "servico": "PAC Reverso",
+      "aceito": true,
+      "unidades": ["..."]
+    },
+    "disqueColeta": {
+      "servico": "Disque Coleta",
+      "aceito": false,
+      "unidades": []
+    }
   },
   "dados": {
     "atualizadoEm": "2026-10-19T14:54:56.105Z",
@@ -90,14 +100,14 @@ npm install
 npm run dev          # http://localhost:3000/docs
 ```
 
-| Script | O que faz |
-|--------|-----------|
-| `npm run dev` | Servidor de desenvolvimento |
-| `npm run build` | Build de produção |
-| `npm start` | Sobe o build de produção |
-| `npm test` | Testes (Vitest) |
-| `npm run typecheck` | Checagem de tipos |
-| `npm run sync` | Baixa a planilha e atualiza o snapshot (`-- --force` regrava mesmo sem mudança) |
+| Script              | O que faz                                                                       |
+| ------------------- | ------------------------------------------------------------------------------- |
+| `npm run dev`       | Servidor de desenvolvimento                                                     |
+| `npm run build`     | Build de produção                                                               |
+| `npm start`         | Sobe o build de produção                                                        |
+| `npm test`          | Testes (Vitest)                                                                 |
+| `npm run typecheck` | Checagem de tipos                                                               |
+| `npm run sync`      | Baixa a planilha e atualiza o snapshot (`-- --force` regrava mesmo sem mudança) |
 
 ## Deploy na Vercel
 
